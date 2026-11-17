@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bienvenue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600&display=swap">
+  <style>
+    :root { --bg: #f6f7fb; --fg: #161a2b; --accent: #4f46e5; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #10131f; --fg: #eef0f8; --accent: #8b87ff; color-scheme: dark; } }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg); color: var(--fg);
+      font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+      display: grid; place-items: center; padding: 0 16px;
+    }
+    h1 { font-size: clamp(3rem, 14vw, 9rem); font-weight: 600; letter-spacing: -0.03em; margin: 0; text-align: center; }
+    h1 span { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <h1>Bienvenue<span>.</span></h1>
+</body>
+</html>
