@@ -2,569 +2,85 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Pixel Flight</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jeux</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
 <style>
-html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-canvas{position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
-#intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,10,20,.74);color:#e8f1ff;font:15px/1.55 ui-monospace,Menlo,Consolas,monospace;text-align:center;padding:24px;gap:12px}
-#intro h1{font-size:24px;letter-spacing:3px;margin:0;color:#ffb347}
-#intro .k{color:#7dffa0}
-#intro .s{opacity:.7;font-size:12px}
-#res{display:flex;gap:8px}
-#res button{font:inherit;font-size:13px;padding:7px 12px;border:2px solid #4a505c;background:#1b1f27;color:#c9cdd4;border-radius:6px}
-#res button.on{border-color:#7dffa0;color:#7dffa0}
-#go{margin-top:8px;font:inherit;font-size:17px;padding:11px 30px;border:2px solid #ffb347;background:#1b1f27;color:#ffb347;border-radius:6px;cursor:pointer}
-#go:disabled{opacity:.4}
-#back{color:#8a93a3;font-size:12px;text-decoration:none}#back:hover{color:#e8f1ff}
-#err{color:#ff7a5c;font-size:11px;white-space:pre-wrap;max-width:90vw;text-align:left}
+:root{--bg:#0b1020;--dots:#161d36;--ink:#e8f1ff;--muted:#8a93a3;--orange:#ffb347;--green:#7dffa0;--edge:#000;--panel:#1b1f27}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink)}
+body{font-family:"VT323",ui-monospace,Menlo,Consolas,monospace;font-size:20px;
+  background-image:radial-gradient(var(--dots) 1px,transparent 1px);background-size:8px 8px;
+  padding:clamp(16px,4vw,40px) clamp(12px,3vw,32px) 48px}
+main{max-width:1000px;margin:0 auto}
+h1{font-family:"Press Start 2P",monospace;font-weight:400;text-align:center;color:var(--orange);
+  font-size:clamp(22px,6vw,48px);letter-spacing:.08em;line-height:1.4;margin:clamp(8px,3vw,32px) 0 clamp(20px,4vw,40px);
+  text-shadow:4px 4px 0 var(--edge)}
+#grid{display:grid;gap:clamp(8px,1.6vw,18px);justify-content:center;
+  grid-template-columns:repeat(var(--cols,1),minmax(0,1fr))}
+.card{container-type:inline-size;display:block;text-decoration:none;color:inherit;background:var(--panel);
+  border:4px solid #4a505c;box-shadow:0 4px 0 var(--edge);overflow:hidden;position:relative;
+  transition:transform .08s,border-color .08s}
+.card:hover,.card:focus-visible{border-color:var(--green);transform:translateY(-2px);outline:none}
+.card:active{transform:translateY(2px)}
+.thumb{aspect-ratio:16/9;width:100%;display:block;background:#000;image-rendering:pixelated;object-fit:cover}
+.meta{padding:3cqw 4cqw 4cqw;display:flex;flex-direction:column;gap:1.5cqw}
+.name{font-family:"Press Start 2P",monospace;font-size:clamp(6px,5.2cqw,16px);line-height:1.5;color:var(--orange)}
+.desc{font-size:clamp(11px,6.4cqw,21px);line-height:1.1;color:var(--muted)}
+.card.few .desc{display:block}
+.tiny .desc{display:none}
+.soon{color:var(--muted);text-align:center;margin-top:28px;font-size:17px}
 </style>
 </head>
 <body>
-<canvas id="gl"></canvas>
-<canvas id="ui"></canvas>
-<div id="intro">
-  <h1>PIXEL FLIGHT</h1>
-  <div>Mobile : <span class="k">glisse le doigt</span> pour virer, monter et piquer.<br>Maintiens <span class="k">BOOST</span> (en bas à droite) pour accélérer.</div>
-  <div>PC : <span class="k">souris</span> ou <span class="k">flèches</span>, clic ou <span class="k">espace</span> pour le boost, <span class="k">R</span> pour les pixels.</div>
-  <div>Taille des pixels :</div>
-  <div id="res"><button data-r="0">GROS</button><button data-r="1">MOYENS</button><button data-r="2">FINS</button></div>
-  <button id="go" disabled>GÉNÉRATION DU MONDE...</button>
-  <div class="s">Monde de 2048 x 2048 généré par la carte graphique. Zéro polygone.</div>
-  <a id="back" href="../">&larr; Retour aux jeux</a>
-  <div id="err"></div>
-</div>
+<main>
+<h1>BIENVENUE</h1>
+<div id="grid"></div>
+<p class="soon">D'autres jeux arrivent bientôt.</p>
+</main>
 <script>
-"use strict";
-const glc = document.getElementById('gl');
-const ui = document.getElementById('ui');
-const ctx = ui.getContext('2d');
-const goBtn = document.getElementById('go');
-const errBox = document.getElementById('err');
-const gl = glc.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: 'high-performance' });
-if (!gl) { errBox.textContent = "Ton navigateur ne supporte pas WebGL2."; throw new Error('no webgl2'); }
+/* Pour ajouter un jeu : une ligne dans GAMES, c'est tout. Les cases se réduisent toutes seules. */
+const GAMES = [
+  { name: "Pixel Flight", desc: "Simulateur de vol en pixels, sans moteur 3D.", href: "pixel-flight/", img: "pixel-flight/apercu.jpg" },
+  { name: "Une Vie en Bourse", desc: "Une vie au hasard, ton épargne sur les vrais marchés. Modes classique et complet.", href: "une-vie-en-bourse/", art: "bourse" }
+];
 
-const N = 2048, M = N - 1;
-const SUN = (() => { const v = [0.62, 0.5, 0.32], l = Math.hypot(...v); return v.map(x => x / l); })();
-
-// ---------------- Shaders ----------------
-const VS = `#version 300 es
-void main(){ vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
-
-const NOISE = `
-uint pcg(uint v){ uint s = v * 747796405u + 2891336453u; uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
-float hash2(ivec2 c, int s){ return float(pcg(uint(c.x) + pcg(uint(c.y) + pcg(uint(s))))) * (1.0 / 4294967295.0); }
-float vnoise(vec2 x, int p, int s){
-  vec2 i = floor(x), f = fract(x);
-  vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-  ivec2 a = ivec2(i) % p; ivec2 b = (a + 1) % p;
-  float A = hash2(a, s), B = hash2(ivec2(b.x, a.y), s), C = hash2(ivec2(a.x, b.y), s), D = hash2(b, s);
-  return mix(mix(A, B, u.x), mix(C, D, u.x), u.y);
-}
-float fbm(vec2 q, int p0, int oct, int seed){
-  float s = 0.0, a = 1.0, t = 0.0; int p = p0;
-  for (int o = 0; o < 10; o++){ if (o >= oct) break; s += a * vnoise(q * float(p) / 2048.0, p, seed + o); t += a; a *= 0.5; p *= 2; }
-  return s / t;
-}
-float ridged(vec2 q, int p0, int oct, int seed){
-  float s = 0.0, a = 1.0, t = 0.0; int p = p0;
-  for (int o = 0; o < 10; o++){ if (o >= oct) break; float n = 1.0 - abs(2.0 * vnoise(q * float(p) / 2048.0, p, seed + o) - 1.0); s += a * n * n; t += a; a *= 0.5; p *= 2; }
-  return s / t;
-}`;
-
-// Passe 1 : relief (encodé sur 16 bits dans R et G)
-const FS_HEIGHT = `#version 300 es
-precision highp float; precision highp int;
-out vec4 o;
-${NOISE}
-void main(){
-  vec2 uv = gl_FragCoord.xy - 0.5;
-  vec2 w = vec2(fbm(uv, 4, 4, 50), fbm(uv, 4, 4, 60)) - 0.5;
-  vec2 q = uv + w * 300.0 + 4096.0;
-  float e = fbm(q, 4, 9, 0);
-  e = (e - 0.5) * 2.6 + 0.5;
-  float land = e - 0.5;
-  float r = ridged(q, 8, 6, 20);
-  float mask = smoothstep(0.12, 0.42, land);
-  float h;
-  if (land > 0.0) h = pow(land * 2.0, 1.5) * 90.0 + mask * pow(r, 2.2) * 330.0;
-  else h = land * 260.0;
-  h += (fbm(q, 256, 3, 90) - 0.5) * 8.0 * smoothstep(0.0, 0.06, land);
-  float enc = clamp((h + 400.0) / 1000.0, 0.0, 1.0) * 65535.0;
-  o = vec4(floor(enc / 256.0) / 255.0, mod(enc, 256.0) / 255.0, 0.0, 1.0);
-}`;
-
-// Passe 2 : couleur + lumière du soleil + ombres portées (calculées une fois) ; alpha = nuages
-const FS_COLOR = `#version 300 es
-precision highp float; precision highp int;
-uniform sampler2D hT;
-out vec4 o;
-${NOISE}
-const vec3 L = vec3(${SUN.join(',')});
-float H(vec2 p){ return textureLod(hT, p / 2048.0, 0.0).r; }
-void main(){
-  vec2 p = gl_FragCoord.xy;
-  float h = H(p);
-  vec3 n = normalize(vec3(H(p - vec2(1, 0)) - H(p + vec2(1, 0)), 2.0, H(p - vec2(0, 1)) - H(p + vec2(0, 1))));
-  float nz = fbm(p + 2048.0, 32, 4, 70);
-  float fine = hash2(ivec2(p), 5);
-  vec3 col;
-  if (h < 0.0) {
-    col = mix(vec3(0.86, 0.8, 0.58), vec3(0.3, 0.42, 0.38), smoothstep(-1.0, -35.0, h));
-  } else if (h < 3.0 + nz * 6.0) {
-    col = vec3(0.86, 0.8, 0.58);
-  } else {
-    vec3 grass = mix(vec3(0.42, 0.62, 0.24), vec3(0.17, 0.38, 0.15), smoothstep(0.42, 0.58, nz));
-    grass = mix(grass, vec3(0.45, 0.46, 0.3), smoothstep(140.0, 250.0, h + nz * 40.0));
-    vec3 rock = mix(vec3(0.42, 0.38, 0.34), vec3(0.62, 0.58, 0.53), fine * 0.6 + nz * 0.4);
-    float rk = max(smoothstep(0.62, 0.4, n.y), smoothstep(230.0, 300.0, h + nz * 50.0));
-    col = mix(grass, rock, rk);
-    float snow = smoothstep(285.0, 330.0, h + nz * 60.0) * smoothstep(0.55, 0.8, n.y);
-    col = mix(col, vec3(0.95, 0.97, 1.0), snow);
+/* vignette dessinée en pixels pour les jeux sans image */
+function art(kind) {
+  const c = document.createElement("canvas"); c.width = 64; c.height = 36; c.className = "thumb";
+  const g = c.getContext("2d");
+  g.fillStyle = "#13161c"; g.fillRect(0, 0, 64, 36);
+  g.fillStyle = "#23304a"; for (let y = 6; y < 36; y += 8) g.fillRect(0, y, 64, 1);
+  if (kind === "bourse") {
+    let v = 22; const pts = [];
+    for (let x = 0; x < 64; x += 2) { v += Math.sin(x * 0.45) * 2 + 0.55 - ((x * 7) % 5) * 0.35; pts.push(v); }
+    pts.forEach((p, i) => { const x = i * 2, y = Math.max(3, Math.min(33, Math.round(36 - p)));
+      g.fillStyle = "#f2b400"; g.fillRect(x, y, 2, 2);
+      g.fillStyle = "#1d7a3c"; g.fillRect(x, y + 2, 2, 36 - y); });
+    g.fillStyle = "#f2b400"; g.fillRect(55, 4, 5, 5); g.fillRect(56, 3, 3, 7);
   }
-  col *= 0.9 + 0.2 * fine;
-  float dif = max(dot(n, L), 0.0);
-  float sh = 1.0, t = 2.0;
-  for (int i = 0; i < 48; i++) {
-    vec3 q = vec3(p.x, h, p.y) + L * t;
-    float d = q.y - H(q.xz);
-    sh = min(sh, 7.0 * d / t);
-    if (sh < 0.0 || q.y > 520.0) break;
-    t += max(1.5, t * 0.12);
-  }
-  sh = clamp(sh, 0.0, 1.0);
-  vec3 lit = col * (vec3(1.0, 0.93, 0.8) * 1.15 * dif * sh + vec3(0.33, 0.43, 0.6) * (0.4 + 0.3 * n.y));
-  float cloud = smoothstep(0.47, 0.72, fbm(p + 2048.0, 4, 6, 200));
-  o = vec4(clamp(lit, 0.0, 1.0), cloud);
-}`;
-
-// Passe minicarte
-const FS_MINI = `#version 300 es
-precision highp float;
-uniform sampler2D cT; out vec4 o;
-void main(){ o = vec4(textureLod(cT, gl_FragCoord.xy / 256.0, 3.0).rgb, 1.0); }`;
-
-// Passe principale : ray marching par pixel
-const FS_MAIN = `#version 300 es
-precision highp float; precision highp int;
-uniform sampler2D hT, cT;
-uniform vec3 ro, cr, cu, cf;
-uniform vec2 res;
-uniform float P, tanF, time;
-out vec4 o;
-const vec3 L = vec3(${SUN.join(',')});
-const float CH = 640.0;
-const float B[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
-float H(vec2 p){ return textureLod(hT, p / 2048.0, 0.0).r; }
-vec3 sky(vec3 rd){
-  float y = max(rd.y, 0.0);
-  vec3 c = mix(vec3(0.74, 0.83, 0.93), vec3(0.2, 0.4, 0.78), pow(y, 0.55));
-  float s = max(dot(rd, L), 0.0);
-  c += vec3(1.0, 0.8, 0.55) * (pow(s, 8.0) * 0.28 + pow(s, 700.0) * 3.0);
-  if (rd.y < 0.0) c = mix(c, vec3(0.6, 0.68, 0.77), min(1.0, -rd.y * 3.0));
   return c;
 }
-void main(){
-  vec2 fc = gl_FragCoord.xy;
-  if (fc.y < P) { o = vec4(0.0, 0.0, 0.0, 1.0); return; }
-  float s = res.x * 0.5;
-  float vc = P + (res.y - P) * 0.5;
-  vec2 uv = (fc - vec2(res.x * 0.5, vc)) / s;
-  vec3 rd = normalize(cf + cr * uv.x * tanF + cu * uv.y * tanF);
-  float pxa = tanF / s;
-  const float FAR = 3400.0;
-  float t = 1.0, tp = 1.0; bool hit = false;
-  for (int i = 0; i < 220; i++) {
-    vec3 p = ro + rd * t;
-    float d = p.y - max(H(p.xz), 0.0);
-    if (d < 0.0) { hit = true; break; }
-    if (t > FAR || (rd.y > 0.0 && p.y > 720.0)) break;
-    tp = t;
-    t += max(d * 0.45, 0.35 + t * 0.004);
-  }
-  vec3 col;
-  if (hit) {
-    float a = tp, b = t;
-    for (int k = 0; k < 6; k++) { float m = (a + b) * 0.5; vec3 p = ro + rd * m; if (p.y - max(H(p.xz), 0.0) < 0.0) b = m; else a = m; }
-    t = b;
-    vec3 p = ro + rd * t;
-    float h = H(p.xz);
-    float lod = log2(max(1.0, t * pxa));
-    col = textureLod(cT, p.xz / 2048.0, lod).rgb;
-    if (h < 0.0) {
-      vec2 wq = p.xz * 0.07;
-      vec3 n = normalize(vec3(0.05 * (sin(wq.x * 1.7 + time * 1.3) + sin(wq.x * 0.9 + wq.y * 1.3 - time)),
-                              1.0,
-                              0.05 * (sin(wq.y * 1.5 - time * 1.1) + cos(wq.x * 1.1 - wq.y * 0.7 + time * 0.8))));
-      n = normalize(mix(n, vec3(0, 1, 0), clamp(t / 1800.0, 0.0, 1.0)));
-      vec3 rf = reflect(rd, n);
-      float fr = 0.04 + 0.96 * pow(1.0 - max(dot(-rd, n), 0.0), 5.0);
-      vec3 wc = mix(col * vec3(0.7, 0.95, 1.0), vec3(0.03, 0.15, 0.3), 1.0 - exp(h * 0.07));
-      col = mix(wc, sky(rf), fr);
-      col += vec3(1.0, 0.9, 0.7) * pow(max(dot(rf, L), 0.0), 220.0) * 1.6;
-    }
-    vec2 sp = p.xz + L.xz / L.y * (CH - p.y) + vec2(time * 6.0, time * 3.0);
-    col *= 1.0 - 0.45 * textureLod(cT, sp / 2048.0, 3.0).a;
-    float fa = 1.0 - exp(-t * 0.0007);
-    col = mix(col, sky(normalize(vec3(rd.x, max(rd.y, 0.02), rd.z))), fa);
-  } else {
-    col = sky(rd);
-  }
-  if (abs(rd.y) > 1e-3) {
-    float tc = (CH - ro.y) / rd.y;
-    if (tc > 0.0 && (!hit || tc < t) && tc < 7000.0) {
-      vec2 cp = ro.xz + rd.xz * tc + vec2(time * 6.0, time * 3.0);
-      float d = textureLod(cT, cp / 2048.0, log2(max(1.0, tc * pxa))).a;
-      vec3 cc = ro.y > CH ? vec3(1.0, 0.99, 0.97) : mix(vec3(0.72, 0.77, 0.86), vec3(1.0, 0.97, 0.92), 0.4 + 0.6 * max(dot(rd, L), 0.0));
-      float fa = 1.0 - exp(-tc * 0.00045);
-      cc = mix(cc, sky(rd), fa);
-      col = mix(col, cc, d * 0.92 * (1.0 - fa * 0.7));
-    }
-  }
-  ivec2 ip = ivec2(fc) & 3;
-  float bay = (B[ip.y * 4 + ip.x] + 0.5) / 16.0;
-  col = floor(clamp(col, 0.0, 1.0) * 22.0 + bay) / 22.0;
-  o = vec4(col, 1.0);
-}`;
 
-function compile(type, src) {
-  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-  return s;
-}
-function program(fs) {
-  const p = gl.createProgram();
-  gl.attachShader(p, compile(gl.VERTEX_SHADER, VS));
-  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-  return p;
-}
-function makeTex(w, h, ifmt, fmt, type, data, filter, mip) {
-  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
-  gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, type, data);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mip ? gl.LINEAR_MIPMAP_LINEAR : filter);
-  return t;
-}
-function renderTo(tex, w, h, prog) {
-  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-  gl.viewport(0, 0, w, h); gl.useProgram(prog); gl.drawArrays(gl.TRIANGLES, 0, 3);
-  return fb;
-}
-
-// ---------------- Génération du monde ----------------
-const HM = new Float32Array(N * N);
-let hTex, cTex, mainProg, U_ = {};
-const mini = document.createElement('canvas'); mini.width = mini.height = 768;
-gl.bindVertexArray(gl.createVertexArray());
-
-function generate() {
-  const pH = program(FS_HEIGHT), pC = program(FS_COLOR), pM = program(FS_MINI);
-  mainProg = program(FS_MAIN);
-  // 1. relief
-  const encTex = makeTex(N, N, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, null, gl.NEAREST, false);
-  let fb = renderTo(encTex, N, N, pH);
-  const px = new Uint8Array(N * N * 4);
-  gl.readPixels(0, 0, N, N, gl.RGBA, gl.UNSIGNED_BYTE, px);
-  for (let i = 0; i < N * N; i++) HM[i] = ((px[i * 4] * 256 + px[i * 4 + 1]) / 65535) * 1000 - 400;
-  gl.deleteFramebuffer(fb); gl.deleteTexture(encTex);
-  hTex = makeTex(N, N, gl.R16F, gl.RED, gl.FLOAT, HM, gl.LINEAR, false);
-  // 2. couleurs + lumière
-  cTex = makeTex(N, N, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, null, gl.LINEAR, true);
-  gl.useProgram(pC);
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hTex);
-  gl.uniform1i(gl.getUniformLocation(pC, 'hT'), 0);
-  fb = renderTo(cTex, N, N, pC);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
-  gl.bindTexture(gl.TEXTURE_2D, cTex); gl.generateMipmap(gl.TEXTURE_2D);
-  // 3. minicarte
-  const mt = makeTex(256, 256, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, null, gl.NEAREST, false);
-  gl.useProgram(pM); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cTex);
-  gl.uniform1i(gl.getUniformLocation(pM, 'cT'), 0);
-  fb = renderTo(mt, 256, 256, pM);
-  const mp = new Uint8ClampedArray(256 * 256 * 4);
-  gl.readPixels(0, 0, 256, 256, gl.RGBA, gl.UNSIGNED_BYTE, mp);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); gl.deleteTexture(mt);
-  const m1 = document.createElement('canvas'); m1.width = m1.height = 256;
-  m1.getContext('2d').putImageData(new ImageData(mp, 256, 256), 0, 0);
-  const g = mini.getContext('2d');
-  for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) g.drawImage(m1, i * 256, k * 256);
-  // uniforms principaux
-  gl.useProgram(mainProg);
-  for (const n of ['hT', 'cT', 'ro', 'cr', 'cu', 'cf', 'res', 'P', 'tanF', 'time']) U_[n] = gl.getUniformLocation(mainProg, n);
-  gl.uniform1i(U_.hT, 0); gl.uniform1i(U_.cT, 1);
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, hTex);
-  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, cTex);
-}
-
-function groundAt(x, y) {
-  const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0;
-  const a = HM[(y0 & M) * N + (x0 & M)], b = HM[(y0 & M) * N + ((x0 + 1) & M)];
-  const c = HM[((y0 + 1) & M) * N + (x0 & M)], d = HM[((y0 + 1) & M) * N + ((x0 + 1) & M)];
-  return Math.max(0, (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy);
-}
-
-// ---------------- Police pixel 3x5 ----------------
-const G = {
-  '0':'111101101101111','1':'010110010010111','2':'111001111100111','3':'111001111001111','4':'101101111001001',
-  '5':'111100111001111','6':'111100111101111','7':'111001001001001','8':'111101111101111','9':'111101111001111',
-  'A':'010101111101101','B':'110101110101110','C':'011100100100011','D':'110101101101110','E':'111100110100111',
-  'H':'101101111101101','L':'100100100100111','O':'111101101101111','P':'110101110100100','R':'110101110101101',
-  'S':'011100010001110','T':'111010010010010'
-};
-function txt(s, x, y, col, sc = 1) {
-  ctx.fillStyle = col;
-  for (const ch of s) {
-    const g = G[ch];
-    if (g) for (let i = 0; i < 15; i++) if (g[i] === '1') ctx.fillRect(x + (i % 3) * sc, y + ((i / 3) | 0) * sc, sc, sc);
-    x += 4 * sc;
-  }
-}
-function pline(x0, y0, x1, y1, w, c) {
-  ctx.fillStyle = c;
-  const n = Math.max(1, Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) | 0);
-  for (let i = 0; i <= n; i++) { const t = i / n; ctx.fillRect(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), w, w); }
-}
-function hash(x, y, s) {
-  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s + 1, 1274126177);
-  h = Math.imul(h ^ (h >>> 13), 1103515245); h ^= h >>> 16; return (h >>> 0) / 4294967296;
-}
-
-// ---------------- Dimensions / taille des pixels ----------------
-let W, H, P, U = 1, TS = 1;
-let RES = 1;
-try { const v = localStorage.getItem('pf_res'); if (v !== null) RES = +v; } catch (e) {}
-const RES_M = [192, 320, 480], RES_D = [256, 400, 640];
-function setRes(i) { RES = i; try { localStorage.setItem('pf_res', i); } catch (e) {} resize(); updResBtns(); }
-function resize() {
-  W = (innerWidth < 700 ? RES_M : RES_D)[RES];
-  U = W / 192; TS = Math.max(1, Math.round(U));
-  H = Math.round(W * innerHeight / innerWidth);
-  H = Math.max(110, Math.min(H, W * 2.4)) | 0;
-  P = Math.round(W * 0.24);
-  glc.width = ui.width = W; glc.height = ui.height = H;
-  ctx.imageSmoothingEnabled = false;
-}
-addEventListener('resize', resize);
-resize();
-
-// ---------------- Avion ----------------
-const START_ALT = 560;
-const pl = { x: 1024, y: 1024, alt: START_ALT, yaw: 0, pitch: 0, roll: 0, spd: 4 };
-let crashed = false, running = false, ready = false, time = 0;
-function respawn() { pl.alt = Math.max(START_ALT, groundAt(pl.x, pl.y) + 120); pl.pitch = 0; pl.roll = 0; pl.spd = 4; crashed = false; }
-
-// ---------------- Contrôles ----------------
-let steer = null, mouse = null, mouseDown = false;
-const boostIds = new Set(), keys = {};
-const toLo = e => ({ x: e.clientX / innerWidth * W, y: e.clientY / innerHeight * H });
-function boostRect() { const bw = Math.round(W * 0.19); return { x: W - bw - 4, y: H - P + 6, w: bw, h: P - 12 }; }
-function inBoost(p) { const r = boostRect(); return p.x >= r.x - 3 && p.x <= r.x + r.w + 3 && p.y >= r.y - 4; }
-ui.addEventListener('pointerdown', e => {
-  e.preventDefault();
-  if (!running) return;
-  if (crashed) { respawn(); return; }
-  if (inBoost(toLo(e))) { boostIds.add(e.pointerId); return; }
-  if (e.pointerType === 'mouse') { mouseDown = true; mouse = { x: e.clientX, y: e.clientY }; return; }
-  if (!steer) steer = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY };
+const grid = document.getElementById("grid");
+const n = GAMES.length;
+/* plus il y a de jeux, plus il y a de colonnes, donc plus les cases sont petites */
+const cols = n <= 1 ? 1 : Math.min(8, Math.ceil(Math.sqrt(n)));
+grid.style.setProperty("--cols", cols);
+grid.style.maxWidth = (n === 1 ? 420 : Math.min(1000, 330 * cols)) + "px";
+grid.style.margin = "0 auto";
+GAMES.forEach(gm => {
+  const a = document.createElement("a");
+  a.className = "card" + (cols >= 4 ? " tiny" : "");
+  a.href = gm.href;
+  a.setAttribute("aria-label", gm.name);
+  if (gm.img) { const i = document.createElement("img"); i.className = "thumb"; i.src = gm.img; i.alt = ""; a.appendChild(i); }
+  else a.appendChild(art(gm.art));
+  const m = document.createElement("div"); m.className = "meta";
+  m.innerHTML = '<div class="name"></div><div class="desc"></div>';
+  m.firstChild.textContent = gm.name; m.lastChild.textContent = gm.desc;
+  a.appendChild(m); grid.appendChild(a);
 });
-ui.addEventListener('pointermove', e => {
-  if (e.pointerType === 'mouse') mouse = { x: e.clientX, y: e.clientY };
-  if (steer && steer.id === e.pointerId) { steer.x = e.clientX; steer.y = e.clientY; }
-});
-function release(e) {
-  boostIds.delete(e.pointerId);
-  if (e.pointerType === 'mouse') mouseDown = false;
-  if (steer && steer.id === e.pointerId) steer = null;
-}
-ui.addEventListener('pointerup', release);
-ui.addEventListener('pointercancel', release);
-ui.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { mouse = null; mouseDown = false; } });
-addEventListener('keydown', e => {
-  keys[e.code] = true;
-  if (e.code === 'KeyR') setRes((RES + 1) % 3);
-  if (e.code === 'Space') { e.preventDefault(); if (crashed && running) respawn(); }
-});
-addEventListener('keyup', e => { keys[e.code] = false; });
-function updResBtns() { document.querySelectorAll('#res button').forEach(b => b.classList.toggle('on', +b.dataset.r === RES)); }
-document.querySelectorAll('#res button').forEach(b => b.addEventListener('click', () => setRes(+b.dataset.r)));
-updResBtns();
-goBtn.addEventListener('click', () => { if (!ready) return; document.getElementById('intro').style.display = 'none'; running = true; });
-
-const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-function controls() {
-  let cx = 0, cy = 0;
-  if (steer) {
-    cx = clamp((steer.x - steer.sx) / 70, -1, 1);
-    cy = clamp((steer.y - steer.sy) / 70, -1, 1);
-  } else if (mouse) {
-    const vy = innerHeight * ((H - P) / 2) / H;
-    cx = clamp((mouse.x - innerWidth / 2) / (innerWidth * 0.35), -1, 1);
-    cy = clamp((mouse.y - vy) / (innerHeight * 0.3), -1, 1);
-    if (Math.abs(cx) < 0.06) cx = 0;
-    if (Math.abs(cy) < 0.06) cy = 0;
-  }
-  if (keys.ArrowLeft) cx = -1; if (keys.ArrowRight) cx = 1;
-  if (keys.ArrowUp) cy = 1; if (keys.ArrowDown) cy = -1;
-  return { cx, cy, boost: boostIds.size > 0 || mouseDown || !!keys.Space };
-}
-
-// ---------------- Physique ----------------
-function update(dt) {
-  const k = dt * 60;
-  time += dt;
-  const c = running ? controls() : { cx: 0, cy: 0, boost: false };
-  pl.roll += (c.cx * 0.75 - pl.roll) * Math.min(1, 0.08 * k);
-  pl.pitch += (-c.cy * 0.45 - pl.pitch) * Math.min(1, 0.06 * k);
-  if (!running) pl.pitch = clamp((START_ALT - pl.alt) * 0.01, -0.2, 0.2);
-  pl.yaw -= pl.roll * 0.022 * k;
-  pl.spd += ((c.boost ? 10 : 4) - pl.spd) * Math.min(1, 0.03 * k);
-  const cp = Math.cos(pl.pitch);
-  pl.x += -Math.sin(pl.yaw) * cp * pl.spd * k;
-  pl.y += -Math.cos(pl.yaw) * cp * pl.spd * k;
-  pl.x = ((pl.x % N) + N) % N; pl.y = ((pl.y % N) + N) % N;
-  pl.alt = Math.min(1300, pl.alt + Math.sin(pl.pitch) * pl.spd * k);
-  if (pl.alt < groundAt(pl.x, pl.y) + 3) crashed = true;
-}
-
-// ---------------- Rendu GPU ----------------
-const TANF = 0.85;
-function renderWorld() {
-  const sy = Math.sin(pl.yaw), cy = Math.cos(pl.yaw), sp = Math.sin(pl.pitch), cp = Math.cos(pl.pitch);
-  const f = [-sy * cp, sp, -cy * cp];
-  let r0 = [-f[2], 0, f[0]]; const rl = Math.hypot(r0[0], r0[2]); r0 = [r0[0] / rl, 0, r0[2] / rl];
-  const u0 = [r0[1] * f[2] - r0[2] * f[1], r0[2] * f[0] - r0[0] * f[2], r0[0] * f[1] - r0[1] * f[0]];
-  const cr = Math.cos(pl.roll), sr = Math.sin(pl.roll);
-  const R = [0, 1, 2].map(i => r0[i] * cr - u0[i] * sr);
-  const Up = [0, 1, 2].map(i => u0[i] * cr + r0[i] * sr);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.viewport(0, 0, W, H);
-  gl.useProgram(mainProg);
-  gl.uniform3f(U_.ro, pl.x, pl.alt, pl.y);
-  gl.uniform3fv(U_.cr, R); gl.uniform3fv(U_.cu, Up); gl.uniform3fv(U_.cf, f);
-  gl.uniform2f(U_.res, W, H);
-  gl.uniform1f(U_.P, P); gl.uniform1f(U_.tanF, TANF); gl.uniform1f(U_.time, time);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
-}
-
-// ---------------- Cockpit (calque 2D) ----------------
-const rivets = [];
-for (let i = 0; i < 40; i++) rivets.push([hash(i, 1, 7), hash(i, 2, 7)]);
-function cockpit() {
-  ctx.clearRect(0, 0, W, H);
-  const y0 = H - P, cxv = W >> 1, cyv = (H - P) >> 1, s = W / 2;
-  // échelle de tangage
-  const cr = Math.cos(-pl.roll), sr = Math.sin(-pl.roll);
-  for (const k of [-2, -1, 1, 2]) {
-    const a = k * 0.17, oy = -Math.tan(a - pl.pitch) / TANF * s;
-    if (Math.abs(oy) > cyv * 1.4) continue;
-    for (const side of [-1, 1]) {
-      const x1 = side * 14 * U, x2 = side * 30 * U;
-      const p1 = [cxv + x1 * cr - oy * sr, cyv + x1 * sr + oy * cr], p2 = [cxv + x2 * cr - oy * sr, cyv + x2 * sr + oy * cr];
-      pline(p1[0], p1[1], p2[0], p2[1], 1, 'rgba(110,255,140,0.85)');
-    }
-  }
-  // réticule
-  ctx.fillStyle = '#6eff8c';
-  ctx.fillRect(cxv - 3 - 3 * TS, cyv, 3 * TS + 1, TS); ctx.fillRect(cxv + 3, cyv, 3 * TS + 1, TS); ctx.fillRect(cxv, cyv, TS, TS);
-  // verrière
-  const pw = Math.max(2, Math.round(2 * U));
-  pline(W * 0.03, 0, W * 0.15, y0, pw, '#2b2f37');
-  pline(W * 0.97 - pw, 0, W * 0.85 - pw, y0, pw, '#2b2f37');
-  ctx.fillStyle = '#23262d'; ctx.fillRect(0, 0, W, Math.round(4 * U));
-  ctx.fillStyle = '#4a505c'; ctx.fillRect(0, Math.round(4 * U), W, 1);
-  ctx.fillStyle = '#e0782a';
-  ctx.fillRect(W * 0.1 | 0, 1, W * 0.14 | 0, Math.round(2 * U)); ctx.fillRect(W * 0.76 | 0, 1, W * 0.14 | 0, Math.round(2 * U));
-  // tableau de bord
-  ctx.fillStyle = '#2b2f37'; ctx.fillRect(0, y0, W, P);
-  ctx.fillStyle = '#4a505c'; ctx.fillRect(0, y0, W, 1);
-  ctx.fillStyle = '#14161a'; ctx.fillRect(0, y0 + 1, W, 1);
-  ctx.fillStyle = '#e0782a';
-  for (let i = 0; i < 6; i++) ctx.fillRect(Math.round(W / 2 - 21 * U + i * 7 * U), y0 - Math.round(3 * U), Math.round(5 * U), Math.round(3 * U));
-  ctx.fillStyle = '#3b4049';
-  for (const [a, b] of rivets) ctx.fillRect(a * W | 0, (y0 + 3 + b * (P - 5)) | 0, 1, 1);
-  // radar / minicarte (1 pixel = 8 cases)
-  const rw = Math.round(W * 0.19), rh = P - 12, rx = 4, ry = y0 + 6;
-  ctx.fillStyle = '#0c0f12'; ctx.fillRect(rx - 1, ry - 1, rw + 2, rh + 2);
-  const zoom = Math.max(1, Math.round(U));
-  const sw = rw / zoom, shh = rh / zoom;
-  const sx = (pl.x / 8) % 256 + 256 - sw / 2, sy2 = (pl.y / 8) % 256 + 256 - shh / 2;
-  ctx.drawImage(mini, sx, sy2, sw, shh, rx, ry, rw, rh);
-  ctx.fillStyle = 'rgba(0,50,15,0.4)'; ctx.fillRect(rx, ry, rw, rh);
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
-  for (let y = ry; y < ry + rh; y += 2) ctx.fillRect(rx, y, rw, 1);
-  const mx = rx + rw / 2 | 0, my = ry + rh / 2 | 0;
-  ctx.fillStyle = '#ffb347';
-  for (let i = 1; i < 6 * U; i++) ctx.fillRect(Math.round(mx - Math.sin(pl.yaw) * i), Math.round(my - Math.cos(pl.yaw) * i), 1, 1);
-  ctx.fillStyle = '#fff'; ctx.fillRect(mx - (TS >> 1), my - (TS >> 1), TS, TS);
-  // altitude et vitesse
-  const alt = Math.max(0, Math.round(pl.alt * 3));
-  const spd = Math.round(pl.spd * 56);
-  const ax = rx + rw + Math.round(6 * U);
-  txt('ALT', ax, y0 + 8 * TS, '#8a93a3', TS);
-  txt(String(alt).padStart(4, '0'), ax, y0 + 16 * TS, '#7dffa0', TS);
-  const sxp = cxv + Math.round(22 * U);
-  txt('SPD', sxp, y0 + 8 * TS, '#8a93a3', TS);
-  txt(String(spd).padStart(3, '0'), sxp, y0 + 16 * TS, '#7dffa0', TS);
-  if (pl.alt - groundAt(pl.x, pl.y) < 40 && !crashed && (performance.now() / 200 | 0) % 2) txt('PL', ax, y0 + 26 * TS, '#ff5a3c', TS);
-  // horizon artificiel
-  const r = Math.min(Math.round(16 * U), (P - 10) >> 1), hx = cxv, hy = y0 + 4 + r;
-  const sn = Math.sin(pl.roll), cs = Math.cos(pl.roll), hl = pl.pitch * r * 1.6;
-  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-    const d2 = dx * dx + dy * dy;
-    if (d2 > r * r) continue;
-    let col;
-    if (d2 > (r - 2) * (r - 2)) col = '#9aa0aa';
-    else { const wy = dx * sn + dy * cs; col = Math.abs(wy - hl) < 0.7 ? '#ffffff' : wy < hl ? '#3f8fd8' : '#8a5a2e'; }
-    ctx.fillStyle = col; ctx.fillRect(hx + dx, hy + dy, 1, 1);
-  }
-  ctx.fillStyle = '#ffb347';
-  ctx.fillRect(hx - 3 - 3 * TS, hy, 3 * TS + 1, TS); ctx.fillRect(hx + 3, hy, 3 * TS + 1, TS); ctx.fillRect(hx, hy, TS, TS);
-  // BOOST
-  const b = boostRect(), on = running && (boostIds.size > 0 || mouseDown || !!keys.Space);
-  ctx.fillStyle = '#0c0f12'; ctx.fillRect(b.x - 1, b.y - 1, b.w + 2, b.h + 2);
-  ctx.fillStyle = on ? '#4a2a12' : '#1d2026'; ctx.fillRect(b.x, b.y, b.w, b.h);
-  ctx.fillStyle = on ? '#ffb347' : '#e0782a';
-  ctx.fillRect(b.x, b.y, b.w, 1); ctx.fillRect(b.x, b.y + b.h - 1, b.w, 1);
-  ctx.fillRect(b.x, b.y, 1, b.h); ctx.fillRect(b.x + b.w - 1, b.y, 1, b.h);
-  txt('BOOST', b.x + ((b.w - 19 * TS) >> 1), b.y + 3 * TS, on ? '#ffb347' : '#c9cdd4', TS);
-  const th = clamp((pl.spd - 3) / 7, 0, 1), bt = 10 * TS, bh = b.h - bt - 3;
-  for (let k2 = 0; k2 < 2; k2++) {
-    const bw2 = 4 * TS, bx = b.x + (b.w >> 1) - bw2 - 1 + k2 * (bw2 + 3);
-    ctx.fillStyle = '#0c0f12'; ctx.fillRect(bx, b.y + bt, bw2, bh);
-    const fh = Math.round(bh * th);
-    ctx.fillStyle = th > 0.7 ? '#ff7a3c' : '#7dffa0';
-    for (let y = 0; y < fh; y += 2) ctx.fillRect(bx, b.y + bt + bh - 1 - y, bw2, 1);
-  }
-  if (crashed) {
-    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, H - P);
-    txt('CRASH', (W - 57 * TS) >> 1, cyv - 14 * TS, '#ff5a3c', 3 * TS);
-    if ((performance.now() / 400 | 0) % 2) txt('TAP', (W - 23 * TS) >> 1, cyv + 8 * TS, '#ffffff', 2 * TS);
-  }
-}
-
-// ---------------- Boucle ----------------
-let last = performance.now();
-function frame(t) {
-  const dt = Math.min(0.05, (t - last) / 1000); last = t;
-  if (!crashed) update(dt);
-  renderWorld();
-  cockpit();
-  requestAnimationFrame(frame);
-}
-setTimeout(() => {
-  try {
-    generate();
-    // départ au-dessus de la mer ou d'une plaine si possible
-    for (let i = 0; i < 400; i++) { const x = hash(i, 3, 1) * N, y = hash(i, 4, 1) * N; if (groundAt(x, y) < 40) { pl.x = x; pl.y = y; break; } }
-    ready = true; goBtn.disabled = false; goBtn.textContent = 'DÉCOLLER';
-    requestAnimationFrame(frame);
-  } catch (e) { errBox.textContent = 'Erreur : ' + e.message; }
-}, 60);
 </script>
 </body>
 </html>
