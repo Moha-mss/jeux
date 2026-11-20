@@ -16,8 +16,7 @@ main{max-width:1000px;margin:0 auto}
 h1{font-family:"Press Start 2P",monospace;font-weight:400;text-align:center;color:var(--orange);
   font-size:clamp(22px,6vw,48px);letter-spacing:.08em;line-height:1.4;margin:clamp(8px,3vw,32px) 0 clamp(20px,4vw,40px);
   text-shadow:4px 4px 0 var(--edge)}
-#grid{display:grid;gap:clamp(8px,1.6vw,18px);justify-content:center;
-  grid-template-columns:repeat(var(--cols,1),minmax(0,1fr))}
+#grid{display:flex;flex-wrap:wrap;gap:clamp(8px,1.6vw,18px);justify-content:center;align-items:flex-start}
 .card{container-type:inline-size;display:block;text-decoration:none;color:inherit;background:var(--panel);
   border:4px solid #4a505c;box-shadow:0 4px 0 var(--edge);overflow:hidden;position:relative;
   transition:transform .08s,border-color .08s}
@@ -42,6 +41,7 @@ h1{font-family:"Press Start 2P",monospace;font-weight:400;text-align:center;colo
 /* Pour ajouter un jeu : une ligne dans GAMES, c'est tout. Les cases se réduisent toutes seules. */
 const GAMES = [
   { name: "Pixel Flight", desc: "Simulateur de vol en pixels, sans moteur 3D.", href: "pixel-flight/", img: "pixel-flight/apercu.jpg" },
+  { name: "Pixel Ocean", desc: "Pilote un bateau vu de haut, trouve 8 balises entre les iles.", href: "pixel-ocean/", art: "ocean" },
   { name: "Une Vie en Bourse", desc: "Une vie au hasard, ton épargne sur les vrais marchés. Modes classique et complet.", href: "une-vie-en-bourse/", art: "bourse" }
 ];
 
@@ -51,6 +51,17 @@ function art(kind) {
   const g = c.getContext("2d");
   g.fillStyle = "#13161c"; g.fillRect(0, 0, 64, 36);
   g.fillStyle = "#23304a"; for (let y = 6; y < 36; y += 8) g.fillRect(0, y, 64, 1);
+  if (kind === "ocean") {
+    g.fillStyle = "#0b3a66"; g.fillRect(0, 0, 64, 36);
+    g.fillStyle = "#14588c"; for (let y = 3; y < 36; y += 6) for (let x = (y * 5) % 8; x < 64; x += 8) g.fillRect(x, y, 3, 1);
+    g.fillStyle = "#2fa7b8"; g.fillRect(4, 22, 20, 10); g.fillRect(2, 25, 24, 5);
+    g.fillStyle = "#e6d9a2"; g.fillRect(6, 23, 16, 8); g.fillRect(4, 26, 20, 3);
+    g.fillStyle = "#3f9a3a"; g.fillRect(9, 25, 9, 4);
+    g.fillStyle = "#f4f6f8"; g.fillRect(40, 14, 4, 9); g.fillRect(41, 12, 2, 3);
+    g.fillStyle = "#c8955a"; g.fillRect(41, 15, 2, 6); g.fillStyle = "#e0452f"; g.fillRect(41, 17, 2, 2);
+    g.fillStyle = "rgba(255,255,255,.7)"; for (let i = 0; i < 9; i++) g.fillRect(41 - i * 2, 24 + i, 2, 1);
+    g.fillStyle = "#ff5a3c"; g.fillRect(52, 6, 3, 2); g.fillStyle = "#fff"; g.fillRect(52, 6, 1, 8);
+  }
   if (kind === "bourse") {
     let v = 22; const pts = [];
     for (let x = 0; x < 64; x += 2) { v += Math.sin(x * 0.45) * 2 + 0.55 - ((x * 7) % 5) * 0.35; pts.push(v); }
@@ -64,14 +75,9 @@ function art(kind) {
 
 const grid = document.getElementById("grid");
 const n = GAMES.length;
-/* plus il y a de jeux, plus il y a de colonnes, donc plus les cases sont petites */
-const cols = n <= 1 ? 1 : Math.min(8, Math.ceil(Math.sqrt(n)));
-grid.style.setProperty("--cols", cols);
-grid.style.maxWidth = (n === 1 ? 420 : Math.min(1000, 330 * cols)) + "px";
-grid.style.margin = "0 auto";
 GAMES.forEach(gm => {
   const a = document.createElement("a");
-  a.className = "card" + (cols >= 4 ? " tiny" : "");
+  a.className = "card";
   a.href = gm.href;
   a.setAttribute("aria-label", gm.name);
   if (gm.img) { const i = document.createElement("img"); i.className = "thumb"; i.src = gm.img; i.alt = ""; a.appendChild(i); }
@@ -81,6 +87,13 @@ GAMES.forEach(gm => {
   m.firstChild.textContent = gm.name; m.lastChild.textContent = gm.desc;
   a.appendChild(m); grid.appendChild(a);
 });
+/* chaque nouveau jeu rend toutes les cases un peu plus petites */
+function sizeCards() {
+  const box = Math.min(1000, document.documentElement.clientWidth - 24);
+  const w = n === 1 ? Math.min(box, 420) : Math.max(84, Math.floor(box / (1.2 + 0.6 * Math.pow(n, 0.8))));
+  document.querySelectorAll(".card").forEach(c => { c.style.width = w + "px"; c.classList.toggle("tiny", w < 150); });
+}
+sizeCards(); addEventListener("resize", sizeCards);
 </script>
 </body>
 </html>
